@@ -1,0 +1,51 @@
+name: apply-environment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: dev | test | preprod | prod
+        required: true
+        type: string
+      env_key:
+        description: Uppercased environment name, used to build the secret name.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  apply:
+    name: apply ${{ matrix.brand }}/${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ matrix.brand }}-${{ inputs.environment }}
+    strategy:
+      fail-fast: true
+      matrix:
+        brand: [brand-one, brand-two]
+        include:
+          - { brand: brand-one, brand_key: ONE }
+          - { brand: brand-two, brand_key: TWO }
+    env:
+      TF_IN_AUTOMATION: "true"
+      AUTHSIGNAL_API_SECRET: ${{ secrets[format('AUTHSIGNAL_API_SECRET_{0}_{1}', matrix.brand_key, inputs.env_key)] }}
+    defaults:
+      run:
+        working-directory: live/${{ matrix.brand }}/${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.TF_STATE_ROLE_ARN }}
+          aws-region: eu-west-2
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.1
+
+      - run: terraform init -backend-config=backend.hcl
+
+      - run: terraform apply -lock-timeout=5m -input=false -auto-approve
