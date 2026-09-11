@@ -1,0 +1,5 @@
+display_name: Brand A
+primary_color: "#1F4FD8"
+logo_url: https://cdn.example.com/brand-a/logo.svg
+favicon_url: https://cdn.example.com/brand-a/favicon.png
+watermark_url: https://cdn.example.com/brand-a/watermark.svg

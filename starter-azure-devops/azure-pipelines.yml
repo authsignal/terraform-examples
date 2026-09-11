@@ -1,0 +1,29 @@
+name: authsignal-$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - starter-azure-devops/environments
+      - starter-azure-devops/modules
+      - starter-azure-devops/backend.hcl
+      - starter-azure-devops/pipelines
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - starter-azure-devops/environments
+      - starter-azure-devops/modules
+      - starter-azure-devops/backend.hcl
+      - starter-azure-devops/pipelines
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - template: pipelines/templates/stages.yml

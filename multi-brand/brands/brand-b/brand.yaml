@@ -1,0 +1,5 @@
+# watermark_url is optional; main.tf maps an omitted value to null.
+display_name: Brand B
+primary_color: "#E5006D"
+logo_url: https://cdn.example.com/brand-b/logo.svg
+favicon_url: https://cdn.example.com/brand-b/favicon.png

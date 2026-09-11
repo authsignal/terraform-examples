@@ -1,0 +1,89 @@
+parameters:
+  - name: environments
+    type: object
+    default:
+      - dev
+      - test
+      - prod
+  - name: terraformVersion
+    type: string
+    default: 1.16.1
+  - name: serviceConnection
+    type: string
+    default: authsignal-terraform
+  - name: workingRoot
+    type: string
+    default: starter-azure-devops
+  - name: environmentPrefix
+    type: string
+    default: authsignal
+
+stages:
+  - stage: validate
+    displayName: Validate
+    jobs:
+      - job: fmt_validate
+        displayName: fmt and validate
+        steps:
+          - checkout: self
+
+          - template: install-terraform.yml
+            parameters:
+              terraformVersion: ${{ parameters.terraformVersion }}
+
+          # Limit formatting checks to this example when the repository contains
+          # other Terraform configurations.
+          - bash: terraform fmt -recursive -check
+            displayName: terraform fmt -check
+            workingDirectory: $(Build.SourcesDirectory)/${{ parameters.workingRoot }}
+
+          # -backend=false avoids state access and credentials on pull requests.
+          - ${{ each environment in parameters.environments }}:
+              - bash: |
+                  set -euo pipefail
+                  terraform init -backend=false -input=false
+                  terraform validate
+                displayName: validate ${{ environment }}
+                workingDirectory: $(Build.SourcesDirectory)/${{ parameters.workingRoot }}/environments/${{ environment }}
+                env:
+                  TF_IN_AUTOMATION: "true"
+
+  - stage: dev
+    displayName: Dev
+    dependsOn: validate
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - template: terraform-env.yml
+        parameters:
+          environment: dev
+          terraformVersion: ${{ parameters.terraformVersion }}
+          serviceConnection: ${{ parameters.serviceConnection }}
+          workingRoot: ${{ parameters.workingRoot }}
+          environmentPrefix: ${{ parameters.environmentPrefix }}
+
+  - stage: test
+    displayName: Test
+    dependsOn: dev
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - template: terraform-env.yml
+        parameters:
+          environment: test
+          terraformVersion: ${{ parameters.terraformVersion }}
+          serviceConnection: ${{ parameters.serviceConnection }}
+          workingRoot: ${{ parameters.workingRoot }}
+          environmentPrefix: ${{ parameters.environmentPrefix }}
+
+  # The production approval is configured on the Azure DevOps Environment.
+  - stage: prod
+    displayName: Prod
+    dependsOn: test
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - template: terraform-env.yml
+        parameters:
+          environment: prod
+          terraformVersion: ${{ parameters.terraformVersion }}
+          serviceConnection: ${{ parameters.serviceConnection }}
+          workingRoot: ${{ parameters.workingRoot }}
+          environmentPrefix: ${{ parameters.environmentPrefix }}

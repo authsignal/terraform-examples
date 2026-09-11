@@ -1,0 +1,14 @@
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.tfstate.lock.info
+
+terraform.tfvars
+secrets.tfvars
+
+tfplan
+*.tfplan
+plan.json
+
+.env
+.vscode/

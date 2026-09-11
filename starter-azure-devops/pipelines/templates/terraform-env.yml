@@ -1,0 +1,73 @@
+parameters:
+  - name: environment
+    type: string
+  - name: terraformVersion
+    type: string
+  - name: serviceConnection
+    type: string
+  - name: workingRoot
+    type: string
+  - name: environmentPrefix
+    type: string
+
+jobs:
+  # Approvals are configured on the target Azure DevOps Environment.
+  - deployment: ${{ parameters.environment }}
+    displayName: ${{ parameters.environment }}
+    environment: ${{ parameters.environmentPrefix }}-${{ parameters.environment }}
+    variables:
+      # Each job receives credentials only for its environment.
+      - group: authsignal-${{ parameters.environment }}
+      - name: rootDir
+        value: $(Build.SourcesDirectory)/${{ parameters.workingRoot }}
+      - name: envDir
+        value: $(Build.SourcesDirectory)/${{ parameters.workingRoot }}/environments/${{ parameters.environment }}
+      - name: stateKey
+        value: ${{ parameters.environment }}.tfstate
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - checkout: self
+
+            - template: install-terraform.yml
+              parameters:
+                terraformVersion: ${{ parameters.terraformVersion }}
+
+            - task: AzureCLI@2
+              displayName: Terraform init and plan
+              inputs:
+                azureSubscription: ${{ parameters.serviceConnection }}
+                scriptType: bash
+                scriptLocation: inlineScript
+                workingDirectory: $(envDir)
+                inlineScript: |
+                  set -euo pipefail
+                  terraform init -input=false \
+                    -backend-config="$(rootDir)/backend.hcl" \
+                    -backend-config="key=$(stateKey)"
+                  terraform validate
+                  terraform plan -input=false -lock-timeout=5m \
+                    -out=tfplan
+              env:
+                TF_IN_AUTOMATION: "true"
+                # The azurerm backend uses the Azure CLI service connection identity.
+                ARM_USE_AZUREAD: "true"
+                TF_VAR_tenant_id: $(AUTHSIGNAL_TENANT_ID)
+                AUTHSIGNAL_API_SECRET: $(AUTHSIGNAL_API_SECRET)
+
+            - task: AzureCLI@2
+              displayName: Terraform apply
+              inputs:
+                azureSubscription: ${{ parameters.serviceConnection }}
+                scriptType: bash
+                scriptLocation: inlineScript
+                workingDirectory: $(envDir)
+                inlineScript: |
+                  set -euo pipefail
+                  terraform apply -input=false -lock-timeout=5m tfplan
+              env:
+                TF_IN_AUTOMATION: "true"
+                ARM_USE_AZUREAD: "true"
+                TF_VAR_tenant_id: $(AUTHSIGNAL_TENANT_ID)
+                AUTHSIGNAL_API_SECRET: $(AUTHSIGNAL_API_SECRET)

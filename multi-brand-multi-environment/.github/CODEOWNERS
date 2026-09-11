@@ -1,9 +1,0 @@
-/modules/               @example-org/identity-platform
-/Makefile               @example-org/identity-platform
-/.github/               @example-org/identity-platform
-
-/live/brand-one/        @example-org/brand-one-engineering
-/live/brand-two/        @example-org/brand-two-engineering
-
-/live/brand-one/prod/   @example-org/brand-one-engineering @example-org/identity-platform
-/live/brand-two/prod/   @example-org/brand-two-engineering @example-org/identity-platform

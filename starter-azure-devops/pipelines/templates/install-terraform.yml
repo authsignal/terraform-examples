@@ -1,0 +1,23 @@
+# Install Terraform without requiring a Marketplace extension.
+
+parameters:
+  - name: terraformVersion
+    type: string
+
+steps:
+  - bash: |
+      set -euo pipefail
+      version="${{ parameters.terraformVersion }}"
+      dest="$(Agent.ToolsDirectory)/terraform/${version}"
+      mkdir -p "${dest}"
+      curl -fsSL --retry 3 --retry-all-errors \
+        "https://releases.hashicorp.com/terraform/${version}/terraform_${version}_linux_amd64.zip" \
+        -o "${dest}/terraform.zip"
+      unzip -oq "${dest}/terraform.zip" -d "${dest}"
+      rm "${dest}/terraform.zip"
+      chmod +x "${dest}/terraform"
+      echo "##vso[task.prependpath]${dest}"
+    displayName: Install Terraform ${{ parameters.terraformVersion }}
+
+  - bash: terraform version
+    displayName: Show Terraform version

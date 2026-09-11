@@ -1,0 +1,39 @@
+{
+  "actionNodes": [
+    {
+      "nodeId": "screen-request",
+      "nodeType": "RULE",
+      "parentNodeIds": [],
+      "ruleChildNodeIds": [["anonymous-ip", "block-request"]],
+      "elseChildNodeId": "verify-identity"
+    },
+    {
+      "nodeId": "verify-identity",
+      "nodeType": "VERIFICATION",
+      "parentNodeIds": ["screen-request"],
+      "name": "Confirm it is you before adding a payment method",
+      "methodConfigurations": {
+        "PASSKEY": { "isEnabled": true },
+        "EMAIL_OTP": { "isEnabled": true }
+      },
+      "childNodeId": "complete-add-payment-method"
+    },
+    {
+      "nodeId": "block-request",
+      "nodeType": "BLOCK",
+      "parentNodeIds": ["screen-request"]
+    },
+    {
+      "nodeId": "complete-add-payment-method",
+      "nodeType": "COMPLETE",
+      "parentNodeIds": ["verify-identity"]
+    }
+  ],
+  "rules": [
+    {
+      "ruleId": "anonymous-ip",
+      "name": "Anonymous IP",
+      "conditions": { "and": [{ "==": [{ "var": "ip.isAnonymous" }, true] }] }
+    }
+  ]
+}
