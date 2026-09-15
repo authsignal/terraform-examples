@@ -5,7 +5,7 @@ Terraform, Azure Blob Storage holds state, and Azure DevOps variable groups hold
 the Management API secrets. The Terraform configuration matches `starter`.
 This example uses the
 [Authsignal provider](https://registry.terraform.io/providers/authsignal/authsignal)
-`~> 3.6` and Terraform 1.10 or later.
+`~> 3.7` and Terraform 1.11 or later.
 
 ## Layout
 
@@ -32,17 +32,34 @@ environments/dev|test|prod/
 Only `terraform.auto.tfvars` differs between the three environment roots. Their
 `main.tf`, `variables.tf`, and `versions.tf` files are identical.
 
+Each root keeps a permanent `import` block that adopts the tenant's existing
+theme, which the provider can update but not create; `tenant_id` is the import ID.
+
 ## Prerequisites
 
 - **Three Authsignal tenants.** The tenant ID and Management API secret are under
   Settings > API keys in the Authsignal Portal. Terraform configures existing
   tenants; it does not create them.
-- **Passkey and Email OTP enabled in every tenant.** The included flows use both.
-  A disabled method can be published but fails at runtime.
+- **SMTP delivery details for every tenant.** Email OTP sends over SMTP, so each
+  tenant needs a host, username, sender address, and password.
 - **An Azure subscription** with permission to create a resource group and
   storage account.
 - **An Azure DevOps project containing this repository** with permission to
   create service connections, variable groups, Environments, and pipelines.
+
+Terraform configures the Passkey and Email OTP authenticators in
+`modules/authsignal-tenant/main.tf`, so neither needs enabling in the Portal
+first. Passkey uses the relying party `mfa.authsignal.com`. Email OTP sends
+over SMTP on port 465 with TLS; set `smtp_host`, `smtp_user`, `smtp_from` and
+the non-secret `smtp_credentials_version` marker in each environment's
+`terraform.auto.tfvars`, and bump the marker to resend the credentials.
+`smtp_password` has no default: it is an ephemeral, sensitive variable that
+must be supplied at plan and apply time, and Terraform keeps it out of state
+and plan files.
+
+The `sign-in` flow challenges risky sign-ins and completes verified ones at their
+own completion node; `sign-up` enrolls a Passkey or Email OTP authenticator
+before completing. Both offer Passkey and Email OTP.
 
 ## One-time Azure setup for state
 
@@ -111,8 +128,9 @@ Set the non-secret storage values in `backend.hcl`.
    `pipelines/templates/stages.yml`. It provides state access only.
 2. **Variable groups.** Under Pipelines > Library, create groups named exactly
    `authsignal-dev`, `authsignal-test`, and `authsignal-prod`. Each group must
-   contain `AUTHSIGNAL_TENANT_ID` and a secret `AUTHSIGNAL_API_SECRET` for its
-   tenant.
+   contain `AUTHSIGNAL_TENANT_ID`, a secret `AUTHSIGNAL_API_SECRET`, and a secret
+   `SMTP_PASSWORD` for its tenant. The pipeline passes `SMTP_PASSWORD` to
+   Terraform as `TF_VAR_smtp_password`.
 
    All three groups must exist before any stage runs, including dev. Azure DevOps
    expands every stage before starting the pipeline, so a missing group stops the
@@ -152,11 +170,15 @@ read -rsp "Authsignal Management API secret: " AUTHSIGNAL_API_SECRET
 printf '\n'
 export AUTHSIGNAL_API_SECRET
 
+read -rsp "SMTP password: " TF_VAR_smtp_password
+printf '\n'
+export TF_VAR_smtp_password
+
 terraform init -backend-config=../../backend.hcl -backend-config="key=dev.tfstate"
 terraform plan
 terraform apply
 
-unset TF_VAR_tenant_id AUTHSIGNAL_API_SECRET
+unset TF_VAR_tenant_id AUTHSIGNAL_API_SECRET TF_VAR_smtp_password
 ```
 
 The committed `terraform.auto.tfvars` sets `environment`. To validate without
@@ -171,7 +193,9 @@ Azure access, run `terraform init -backend=false && terraform validate`.
    previous export.
 4. For a new action, add an `authsignal_flow` resource to
    `modules/authsignal-tenant/main.tf` and add it to `outputs.tf` to include its
-   version in the run log.
+   version in the run log. Give any flow that offers Passkey or Email OTP the
+   same `depends_on` block as `sign_in`, so both authenticators exist before the
+   flow is published.
 5. Commit the change and open a pull request.
 
 Once Terraform manages an action, Authsignal Portal edits are overwritten by
@@ -190,9 +214,9 @@ To add `staging`:
    `pipelines/templates/stages.yml`, then add its stage with the required
    `dependsOn`.
 4. Create the `authsignal-staging` variable group and Environment.
-5. Enable Passkey and Email OTP in the tenant, then merge. The copied root keeps
-   the permanent theme `import` block, so no manual import is required. The first
-   apply creates `staging.tfstate`.
+5. Add `SMTP_PASSWORD` to the new variable group, then merge. The copied root
+   keeps the permanent theme `import` block, so no manual import is required. The
+   first apply creates `staging.tfstate`.
 
 ## Not covered
 

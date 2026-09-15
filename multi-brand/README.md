@@ -5,7 +5,7 @@ Terraform watches the GitHub repository, plans pull requests, applies merges,
 and stores state and Management API secrets. A shared baseline module defines
 common configuration, and each brand module extends it. This example uses the
 [Authsignal provider](https://registry.terraform.io/providers/authsignal/authsignal)
-`~> 3.6` and Terraform 1.10 or later. For one brand, use `starter`.
+`~> 3.7` and Terraform 1.11 or later. For one brand, use `starter`.
 
 ## Layout
 
@@ -24,7 +24,7 @@ brands/
     outputs.tf
     versions.tf
     brand.yaml
-    flows/change-password.json
+    flows/sign-up.json
     environments/
       dev/ test/ prod/
         cloud.tf
@@ -44,12 +44,15 @@ brand. Brand identity enters through variables, while the module adds the
 non-production suffix to theme names.
 
 `brands/<brand>` reads identity from `brand.yaml`, calls the baseline, and adds
-brand-specific flows. Brand A adds `change-password`; Brand B adds
+brand-specific flows. Brand A adds `sign-up`; Brand B adds
 `add-payment-method`.
 
 `brands/<brand>/environments/<env>` selects the tenant. All six roots have
 identical `main.tf`, `variables.tf`, and `versions.tf` files because the brand
 module is always at `../..`. Only `cloud.tf` and `terraform.auto.tfvars` differ.
+
+Each root keeps a permanent `import` block that adopts the tenant's existing
+theme, which the provider can update but not create; `tenant_id` is the import ID.
 
 ## Prerequisites
 
@@ -57,10 +60,25 @@ module is always at `../..`. Only `cloud.tf` and `terraform.auto.tfvars` differ.
   The tenant ID and Management API secret are under Settings > API keys in the
   Authsignal Portal. Terraform configures existing tenants; it does not create
   them.
-- **Passkey and Email OTP enabled in every tenant.** The included flows use both.
-  A disabled method can be published but fails at runtime.
+- **SMTP delivery details for every tenant.** Email OTP sends over SMTP, so each
+  tenant needs a host, username, sender address, and password.
 - **An HCP Terraform organisation** connected to GitHub as a VCS provider.
 - **This folder at the root of a GitHub repository.**
+
+Terraform configures the Passkey and Email OTP authenticators in
+`modules/baseline/main.tf`, so neither needs enabling in the Portal
+first. Passkey uses the relying party `mfa.authsignal.com`. Email OTP sends
+over SMTP on port 465 with TLS; set `smtp_host`, `smtp_user`, `smtp_from` and
+the non-secret `smtp_credentials_version` marker in each environment's
+`terraform.auto.tfvars`, and bump the marker to resend the credentials.
+`smtp_password` has no default: it is an ephemeral, sensitive variable that
+must be supplied at plan and apply time, and Terraform keeps it out of state
+and plan files.
+
+The baseline `sign-in` flow challenges risky sign-ins and completes verified ones
+at their own completion node. Brand A adds `sign-up`, which enrolls a Passkey or
+Email OTP authenticator; Brand B adds `add-payment-method`. Every flow offers
+Passkey and Email OTP.
 
 ## HCP Terraform setup
 
@@ -72,13 +90,14 @@ module is always at `../..`. Only `cloud.tf` and `terraform.auto.tfvars` differ.
    `brands/brand-a/environments/<env>`. Repeat for Brand B with
    `authsignal-brand-b-dev`, `authsignal-brand-b-test`, and
    `authsignal-brand-b-prod`.
-3. Set each workspace's Terraform version to 1.10 or later.
+3. Set each workspace's Terraform version to 1.11 or later.
 4. Add these variables to each workspace:
 
    | Name | Kind | Value |
    | --- | --- | --- |
    | `tenant_id` | Terraform variable | That brand and environment's Authsignal tenant ID |
    | `AUTHSIGNAL_API_SECRET` | Sensitive environment variable | That tenant's Management API secret |
+   | `smtp_password` | Sensitive Terraform variable | That tenant's SMTP password |
 
    The committed `terraform.auto.tfvars` sets `environment`.
 5. Enable auto-apply for both `-dev` workspaces and disable it for the `-test`
@@ -120,8 +139,7 @@ validate without HCP Terraform access, run
 
 1. Run `cp -R brands/brand-b brands/brand-c`, then remove
    `brands/brand-c/environments/*/.terraform`.
-2. Update the display name, colour, and image URLs in
-   `brands/brand-c/brand.yaml`. Remove `watermark_url` if unused.
+2. Update the display name and colour in `brands/brand-c/brand.yaml`.
 3. Replace `brands/brand-c/flows/` with the brand's Authsignal Portal exports.
    Update the `authsignal_flow` resources in `main.tf` and the `merge()` in
    `outputs.tf`; remove both if the brand uses only the baseline.
@@ -137,10 +155,23 @@ is required.
 
 For one brand, save the export as
 `brands/<brand>/flows/<action-code>.json`, add an `authsignal_flow` resource to
-that brand's `main.tf`, and add its version to the `merge()` in `outputs.tf`.
+that brand's `main.tf`, and add its version to the `merge()` in `outputs.tf`. A
+flow that offers Passkey or Email OTP must depend on the baseline, which owns
+both authenticator configurations:
+
+```hcl
+resource "authsignal_flow" "change_password" {
+  action_code = "change-password"
+  flow        = file("${path.module}/flows/change-password.json")
+
+  depends_on = [module.baseline]
+}
+```
 
 For every brand, save the export under `modules/baseline/flows/`, then add the
-resource to `modules/baseline/main.tf` and its version to `outputs.tf`.
+resource to `modules/baseline/main.tf` and its version to `outputs.tf`. Inside
+the baseline, depend on the two authenticator resources directly, as `sign_in`
+does.
 
 To export a flow from the Authsignal Portal:
 
@@ -163,8 +194,8 @@ workspace name in `cloud.tf`, and set `environment = "staging"` in
 Add `staging` to the `environment` validation in
 `modules/baseline/variables.tf`, every `brands/*/variables.tf`, and every
 `brands/*/environments/*/variables.tf` so the roots remain identical. Create one
-workspace per brand, enable Passkey and Email OTP in the new tenants, and keep
-the copied theme `import` block.
+workspace per brand, add each new tenant's `smtp_password` to its workspace, and
+keep the copied theme `import` block.
 
 ## Not covered
 

@@ -4,7 +4,7 @@ One Authsignal configuration across three tenants. HCP Terraform watches the
 GitHub repository, plans pull requests, applies merges, and stores state and the
 Management API secret. This example uses the
 [Authsignal provider](https://registry.terraform.io/providers/authsignal/authsignal)
-`~> 3.6` and Terraform 1.10 or later.
+`~> 3.7` and Terraform 1.11 or later.
 
 ## Layout
 
@@ -17,7 +17,7 @@ modules/authsignal-tenant/
   outputs.tf
   flows/
     sign-in.json
-    change-password.json
+    sign-up.json
 environments/
   dev/ test/ prod/
     cloud.tf               # HCP Terraform organisation and workspace
@@ -32,15 +32,32 @@ Each environment root calls `../../modules/authsignal-tenant`, so all three use
 the same theme and flows. Their `main.tf`, `variables.tf`, and `versions.tf`
 files are identical; only `cloud.tf` and `terraform.auto.tfvars` differ.
 
+Each root keeps a permanent `import` block that adopts the tenant's existing
+theme, which the provider can update but not create; `tenant_id` is the import ID.
+
 ## Prerequisites
 
 - **Three Authsignal tenants.** The tenant ID and Management API secret are under
   Settings > API keys in the Authsignal Portal. Terraform configures existing
   tenants; it does not create them.
-- **Passkey and Email OTP enabled in every tenant.** The included flows use both.
-  A disabled method can be published but fails at runtime.
+- **SMTP delivery details for every tenant.** Email OTP sends over SMTP, so each
+  tenant needs a host, username, sender address, and password.
 - **An HCP Terraform organisation** connected to GitHub as a VCS provider.
 - **This folder at the root of a GitHub repository.**
+
+Terraform configures the Passkey and Email OTP authenticators in
+`modules/authsignal-tenant/main.tf`, so neither needs enabling in the Portal
+first. Passkey uses the relying party `mfa.authsignal.com`. Email OTP sends
+over SMTP on port 465 with TLS; set `smtp_host`, `smtp_user`, `smtp_from` and
+the non-secret `smtp_credentials_version` marker in each environment's
+`terraform.auto.tfvars`, and bump the marker to resend the credentials.
+`smtp_password` has no default: it is an ephemeral, sensitive variable that
+must be supplied at plan and apply time, and Terraform keeps it out of state
+and plan files.
+
+The `sign-in` flow challenges risky sign-ins and completes verified ones at their
+own completion node; `sign-up` enrolls a Passkey or Email OTP authenticator
+before completing. Both offer Passkey and Email OTP.
 
 ## HCP Terraform setup
 
@@ -49,13 +66,14 @@ files are identical; only `cloud.tf` and `terraform.auto.tfvars` differ.
    `authsignal-prod`. Select `Version control workflow`, choose this repository,
    and set `Working Directory` to `environments/dev`, `environments/test`, and
    `environments/prod`, respectively.
-3. Set each workspace's Terraform version to 1.10 or later.
+3. Set each workspace's Terraform version to 1.11 or later.
 4. Add these variables to each workspace:
 
    | Name | Kind | Value |
    | --- | --- | --- |
    | `tenant_id` | Terraform variable | That environment's Authsignal tenant ID |
    | `AUTHSIGNAL_API_SECRET` | Sensitive environment variable | That environment's Management API secret |
+   | `smtp_password` | Sensitive Terraform variable | That tenant's SMTP password |
 
    The committed `terraform.auto.tfvars` sets `environment`.
 5. Enable auto-apply for `authsignal-dev` and disable it for `authsignal-test`
@@ -107,11 +125,19 @@ terraform init -backend=false && terraform validate
 4. For a new action, add a resource to `modules/authsignal-tenant/main.tf`:
 
    ```hcl
-   resource "authsignal_flow" "sign_up" {
-     action_code = "sign-up"
-     flow        = file("${path.module}/flows/sign-up.json")
+   resource "authsignal_flow" "change_password" {
+     action_code = "change-password"
+     flow        = file("${path.module}/flows/change-password.json")
+
+     depends_on = [
+       authsignal_passkey_authenticator_configuration.passkey,
+       authsignal_email_otp_authenticator_configuration.email_otp,
+     ]
    }
    ```
+
+   Keep the `depends_on` block for any flow that offers Passkey or Email OTP, so
+   both authenticators exist before the flow is published.
 
    Add it to `outputs.tf` to include its version in the run log.
 5. Commit the change, open a pull request, and review the three plans.
@@ -134,8 +160,8 @@ To add `staging`:
 4. Create the `authsignal-staging` workspace with Working Directory
    `environments/staging`, its own `tenant_id` and `AUTHSIGNAL_API_SECRET`, and
    the same trigger-path pattern.
-5. Enable Passkey and Email OTP in the tenant, then merge. The copied root keeps
-   the permanent theme `import` block, so no manual import is required.
+5. Add the tenant's `smtp_password` to the workspace, then merge. The copied root
+   keeps the permanent theme `import` block, so no manual import is required.
 
 ## Not covered
 

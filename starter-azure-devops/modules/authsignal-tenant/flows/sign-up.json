@@ -1,0 +1,22 @@
+{
+  "actionNodes": [
+    {
+      "nodeId": "enroll-authenticator",
+      "nodeType": "ENROLLMENT",
+      "parentNodeIds": [],
+      "name": "Enroll authentication method",
+      "methodConfigurations": {
+        "PASSKEY": { "isEnabled": true },
+        "EMAIL_OTP": { "isEnabled": true }
+      },
+      "isOptional": false,
+      "childNodeId": "complete-sign-up"
+    },
+    {
+      "nodeId": "complete-sign-up",
+      "nodeType": "COMPLETE",
+      "parentNodeIds": ["enroll-authenticator"]
+    }
+  ],
+  "rules": []
+}

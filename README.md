@@ -14,4 +14,4 @@ Examples for managing Authsignal tenant configuration with Terraform.
 Each example is self-contained. Copy its folder to your repository root and
 follow its README. All examples use the
 [Authsignal provider](https://registry.terraform.io/providers/authsignal/authsignal)
-`~> 3.6` and Terraform 1.10 or later.
+`~> 3.7` and Terraform 1.11 or later.

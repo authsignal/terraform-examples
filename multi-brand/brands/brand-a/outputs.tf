@@ -6,6 +6,6 @@ output "theme_name" {
 output "flow_versions" {
   description = "Published flow versions for the baseline and Brand A."
   value = merge(module.baseline.flow_versions, {
-    (authsignal_flow.change_password.action_code) = authsignal_flow.change_password.flow_version
+    (authsignal_flow.sign_up.action_code) = authsignal_flow.sign_up.flow_version
   })
 }

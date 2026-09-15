@@ -31,13 +31,10 @@ stages:
             parameters:
               terraformVersion: ${{ parameters.terraformVersion }}
 
-          # Limit formatting checks to this example when the repository contains
-          # other Terraform configurations.
           - bash: terraform fmt -recursive -check
             displayName: terraform fmt -check
             workingDirectory: $(Build.SourcesDirectory)/${{ parameters.workingRoot }}
 
-          # -backend=false avoids state access and credentials on pull requests.
           - ${{ each environment in parameters.environments }}:
               - bash: |
                   set -euo pipefail
@@ -74,7 +71,6 @@ stages:
           workingRoot: ${{ parameters.workingRoot }}
           environmentPrefix: ${{ parameters.environmentPrefix }}
 
-  # The production approval is configured on the Azure DevOps Environment.
   - stage: prod
     displayName: Prod
     dependsOn: test

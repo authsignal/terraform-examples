@@ -6,7 +6,7 @@ output "theme_name" {
 output "flow_versions" {
   description = "Published flow version for each action code."
   value = {
-    (authsignal_flow.sign_in.action_code)         = authsignal_flow.sign_in.flow_version
-    (authsignal_flow.change_password.action_code) = authsignal_flow.change_password.flow_version
+    (authsignal_flow.sign_in.action_code) = authsignal_flow.sign_in.flow_version
+    (authsignal_flow.sign_up.action_code) = authsignal_flow.sign_up.flow_version
   }
 }

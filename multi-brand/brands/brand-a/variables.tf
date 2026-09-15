@@ -7,3 +7,30 @@ variable "environment" {
     error_message = "environment must be one of: dev, test, prod."
   }
 }
+
+variable "smtp_host" {
+  description = "SMTP host that delivers Email OTP messages."
+  type        = string
+}
+
+variable "smtp_user" {
+  description = "SMTP username."
+  type        = string
+}
+
+variable "smtp_from" {
+  description = "Address Email OTP messages are sent from."
+  type        = string
+}
+
+variable "smtp_password" {
+  description = "SMTP password for Email OTP. Supply it as TF_VAR_smtp_password; it is never written to state."
+  type        = string
+  ephemeral   = true
+  sensitive   = true
+}
+
+variable "smtp_credentials_version" {
+  description = "Rotation marker for the SMTP credentials. Change it to resend them. Never a secret."
+  type        = string
+}

@@ -18,19 +18,29 @@ variable "primary_color" {
   type        = string
 }
 
-variable "logo_url" {
-  description = "Logo URL for hosted screens."
+variable "smtp_host" {
+  description = "SMTP host that delivers Email OTP messages."
   type        = string
 }
 
-variable "favicon_url" {
-  description = "Favicon URL."
+variable "smtp_user" {
+  description = "SMTP username."
   type        = string
 }
 
-variable "watermark_url" {
-  description = "Watermark URL, or null to leave unset."
+variable "smtp_from" {
+  description = "Address Email OTP messages are sent from."
   type        = string
-  default     = null
-  nullable    = true
+}
+
+variable "smtp_password" {
+  description = "SMTP password for Email OTP. Supply it as TF_VAR_smtp_password; it is never written to state."
+  type        = string
+  ephemeral   = true
+  sensitive   = true
+}
+
+variable "smtp_credentials_version" {
+  description = "Rotation marker for the SMTP credentials. Change it to resend them. Never a secret."
+  type        = string
 }

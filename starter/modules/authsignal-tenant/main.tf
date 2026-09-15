@@ -1,10 +1,10 @@
 terraform {
-  required_version = ">= 1.10"
+  required_version = ">= 1.11"
 
   required_providers {
     authsignal = {
       source  = "authsignal/authsignal"
-      version = "~> 3.6"
+      version = "~> 3.7"
     }
   }
 }
@@ -12,16 +12,12 @@ terraform {
 locals {
   company_display_name = "Example Co"
 
-  # Identify non-production tenants in screenshots with a visible suffix.
   display_name = var.environment == "prod" ? local.company_display_name : "${local.company_display_name} (${upper(var.environment)})"
 }
 
 resource "authsignal_theme" "this" {
   name          = local.display_name
   primary_color = var.primary_color
-  logo_url      = var.logo_url
-  favicon_url   = var.favicon_url
-  watermark_url = var.watermark_url
 
   borders = {
     button_border_radius    = 8
@@ -50,12 +46,44 @@ resource "authsignal_theme" "this" {
   }
 }
 
+resource "authsignal_passkey_authenticator_configuration" "passkey" {
+  is_active        = true
+  relying_party    = "mfa.authsignal.com"
+  expected_origins = ["https://mfa.authsignal.com"]
+}
+
+resource "authsignal_email_otp_authenticator_configuration" "email_otp" {
+  is_active      = true
+  email_provider = "SMTP"
+
+  smtp_email_credentials = {
+    host     = var.smtp_host
+    port     = 465
+    secure   = true
+    user     = var.smtp_user
+    from     = var.smtp_from
+    password = var.smtp_password
+  }
+
+  smtp_email_credentials_version = var.smtp_credentials_version
+}
+
 resource "authsignal_flow" "sign_in" {
   action_code = "sign-in"
   flow        = file("${path.module}/flows/sign-in.json")
+
+  depends_on = [
+    authsignal_passkey_authenticator_configuration.passkey,
+    authsignal_email_otp_authenticator_configuration.email_otp,
+  ]
 }
 
-resource "authsignal_flow" "change_password" {
-  action_code = "change-password"
-  flow        = file("${path.module}/flows/change-password.json")
+resource "authsignal_flow" "sign_up" {
+  action_code = "sign-up"
+  flow        = file("${path.module}/flows/sign-up.json")
+
+  depends_on = [
+    authsignal_passkey_authenticator_configuration.passkey,
+    authsignal_email_otp_authenticator_configuration.email_otp,
+  ]
 }

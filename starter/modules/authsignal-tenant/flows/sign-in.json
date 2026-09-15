@@ -19,7 +19,7 @@
         "PASSKEY": { "isEnabled": true },
         "EMAIL_OTP": { "isEnabled": true }
       },
-      "childNodeId": "complete-sign-in"
+      "childNodeId": "complete-verified-sign-in"
     },
     {
       "nodeId": "block-request",
@@ -29,7 +29,12 @@
     {
       "nodeId": "complete-sign-in",
       "nodeType": "COMPLETE",
-      "parentNodeIds": ["evaluate-risk", "verify-identity"]
+      "parentNodeIds": ["evaluate-risk"]
+    },
+    {
+      "nodeId": "complete-verified-sign-in",
+      "nodeType": "COMPLETE",
+      "parentNodeIds": ["verify-identity"]
     }
   ],
   "rules": [

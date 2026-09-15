@@ -1,23 +1,20 @@
-# This root is identical across environments. Environment-specific values arrive
-# through variables; shared configuration lives in the module.
-
 provider "authsignal" {
   host      = var.authsignal_host
   tenant_id = var.tenant_id
-
-  # Read api_secret from AUTHSIGNAL_API_SECRET so it is not stored here.
 }
 
 module "tenant" {
   source = "../../modules/authsignal-tenant"
 
   environment = var.environment
+
+  smtp_host                = var.smtp_host
+  smtp_user                = var.smtp_user
+  smtp_from                = var.smtp_from
+  smtp_password            = var.smtp_password
+  smtp_credentials_version = var.smtp_credentials_version
 }
 
-# Each tenant already has one theme, and the provider cannot create it. Keep this
-# block permanently so Terraform adopts the theme before managing it.
-# var.tenant_id supplies the required non-empty import ID; the provider addresses
-# the tenant's only theme without using this value to select a resource.
 import {
   to = module.tenant.authsignal_theme.this
   id = var.tenant_id

@@ -11,12 +11,10 @@ parameters:
     type: string
 
 jobs:
-  # Approvals are configured on the target Azure DevOps Environment.
   - deployment: ${{ parameters.environment }}
     displayName: ${{ parameters.environment }}
     environment: ${{ parameters.environmentPrefix }}-${{ parameters.environment }}
     variables:
-      # Each job receives credentials only for its environment.
       - group: authsignal-${{ parameters.environment }}
       - name: rootDir
         value: $(Build.SourcesDirectory)/${{ parameters.workingRoot }}
@@ -51,10 +49,10 @@ jobs:
                     -out=tfplan
               env:
                 TF_IN_AUTOMATION: "true"
-                # The azurerm backend uses the Azure CLI service connection identity.
                 ARM_USE_AZUREAD: "true"
                 TF_VAR_tenant_id: $(AUTHSIGNAL_TENANT_ID)
                 AUTHSIGNAL_API_SECRET: $(AUTHSIGNAL_API_SECRET)
+                TF_VAR_smtp_password: $(SMTP_PASSWORD)
 
             - task: AzureCLI@2
               displayName: Terraform apply
@@ -71,3 +69,4 @@ jobs:
                 ARM_USE_AZUREAD: "true"
                 TF_VAR_tenant_id: $(AUTHSIGNAL_TENANT_ID)
                 AUTHSIGNAL_API_SECRET: $(AUTHSIGNAL_API_SECRET)
+                TF_VAR_smtp_password: $(SMTP_PASSWORD)
