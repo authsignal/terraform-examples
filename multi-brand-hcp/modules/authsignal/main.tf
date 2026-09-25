@@ -11,11 +11,3 @@ resource "authsignal_passkey_authenticator_configuration" "passkey" {
   relying_party    = var.passkey_relying_party
   expected_origins = var.passkey_expected_origins
 }
-
-resource "authsignal_flow" "sign_in" {
-  action_code = "sign-in"
-  flow        = file("${path.module}/flows/sign-in.json")
-
-  # The flow offers passkey, so the authenticator has to exist first.
-  depends_on = [authsignal_passkey_authenticator_configuration.passkey]
-}

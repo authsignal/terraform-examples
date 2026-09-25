@@ -2,7 +2,7 @@
 
 One repository manages every brand's Authsignal tenants in dev, test and
 production. Open a pull request and HCP Terraform plans each affected
-environment. Merge and it applies.
+environment. Merge and each environment queues a run for approval.
 
 ## Projects and workspaces
 
@@ -24,7 +24,7 @@ modules/authsignal/       shared configuration
   main.tf
   variables.tf
   versions.tf
-  flows/sign-in.json
+  flows.tf
 brands/
   brand-a/
     dev/ test/ prod/
@@ -69,7 +69,8 @@ workflow**, pointed at your repository.
 | `brand-a-test` | `brands/brand-a/test` |
 | `brand-a-prod` | `brands/brand-a/prod` |
 
-In **Settings > General**, turn **Auto-apply** off.
+In **Settings > General**, turn **Auto-apply** off. Every run then waits for a
+person, including dev. Turn it on for dev later if you want to.
 
 In **Settings > Version Control**, choose **Always trigger runs** for
 automatic run triggering, or set trigger patterns covering both the
@@ -100,11 +101,20 @@ Do not put tenant IDs or secrets in this repository.
 
 Change `organization = "your-org"` in every `cloud.tf`.
 
-### 7. Open a pull request
+### 7. Start the first run
+
+**Actions > Start new run** on each workspace, then approve it.
+
+Automatic triggering does not always fire until a workspace has run once. After
+the first run, pushes and pull requests trigger runs on their own.
+
+### 8. Open a pull request
 
 Change a value in `brands/brand-a/dev/terraform.tfvars` and open a pull
-request. HCP Terraform links a plan for each affected workspace. Merge to
-apply.
+request. HCP Terraform links a plan for each affected workspace.
+
+Merge, and each affected workspace queues a run. Approve each one in HCP
+Terraform to apply it.
 
 ## First run
 
@@ -129,7 +139,7 @@ terraform init
 terraform plan
 ```
 
-Applies run from a merge only.
+Applies run from a merge only, and each one waits for approval.
 
 ## Add a brand
 
